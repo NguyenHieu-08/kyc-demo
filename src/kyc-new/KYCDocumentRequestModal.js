@@ -1,11 +1,14 @@
 
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import VerificationComponent from './VerificationComponent';
 import BlockingRulesComponent from './BlockingRulesComponent';
 import NotificationComponent from './NotificationComponent';
+import {fetchBlockingRulesStart, fetchNotificationStart} from "./shard/KYCSlice";
+import { useDispatch } from 'react-redux';
+import './KYCDocumentRequest.scss';
 
 const KYCDocumentRequestModal = ({ isOpen, onClose, onCreate }) => {
-
+    const dispatch = useDispatch();
     const verifiesFake = [
         {
             "key": "poi",
@@ -56,25 +59,10 @@ const KYCDocumentRequestModal = ({ isOpen, onClose, onCreate }) => {
         }
     ];
 
-    let rulesFake = {
-        casinoBonus: false,
-        sbBonus: false,
-        blockCasino: true,
-        blockSB: false,
-        blockWithdrawals: false,
-        betBuilder: false,
-        blockBetBuilder: false
-    }
-
-
+    const blockingRuleRef = useRef();
+    const notificationRef = useRef();
     const [verifies, setVerifies ] = useState([...verifiesFake]);
     const [openSections, setOpenSections] = useState({});
-    const [notification, setNotification] = useState({
-        enabled: true,
-        channels: { email: true, personalMessage: true, onScreen: true }
-    });
-    const [blockingPreset, setBlockingPreset] = useState('no-blocks');
-    const [blockingRules, setBlockingRules] = useState({});
 
     useEffect(() => {
         if(verifiesFake) {
@@ -89,9 +77,8 @@ const KYCDocumentRequestModal = ({ isOpen, onClose, onCreate }) => {
     }, []);
 
     useEffect(() => {
-        if(rulesFake) {
-            setBlockingRules(() => rulesFake);
-        }
+        dispatch(fetchBlockingRulesStart(1));
+        dispatch(fetchNotificationStart());
     }, []);
 
     const toggleSection = (key) => {
@@ -125,24 +112,13 @@ const KYCDocumentRequestModal = ({ isOpen, onClose, onCreate }) => {
         });
     };
 
-    const toggleBlockingRule = (keyOrObject) => {
-        if (typeof keyOrObject === 'string') {
-
-            setBlockingRules(prev => ({
-                ...prev,
-                [keyOrObject]: !prev[keyOrObject]
-            }));
-        } else if (typeof keyOrObject === 'object') {
-            setBlockingRules(keyOrObject);
-
-            rulesFake = {...keyOrObject};
-        }
-    };
-
     const handleCreate = () => {
-        const payload = { verifies: {}, blockingRule: blockingRules };
-        if (notification.enabled) {
-            payload.notification = notification.channels;
+
+        const payload = { verifies: {} };
+        if (notificationRef.current?.isEnabled()) {
+            payload.notification = notificationRef.current?.getNotification()
+                .channels.filter(notify => notify.isSelected)
+                .map(notify => parseInt(notify.id));
         }
         verifies.forEach(section => {
             const selectedLabels = section.documents
@@ -153,10 +129,20 @@ const KYCDocumentRequestModal = ({ isOpen, onClose, onCreate }) => {
                 payload.verifies[section.key] = selectedLabels;
             }
         });
+        payload.blockingRules = extractBooleanValues(blockingRuleRef.current?.getBlockingRules());
         onCreate?.(payload);
         console.log("Gửi về backend:", payload);
         alert("Lưu thành công!");
     };
+
+    function extractBooleanValues(data) {
+        const result = {};
+        for (const key in data) {
+            result[key] = data[key].value;
+        }
+        return result;
+    }
+
 
     if (!isOpen) return null;
 
@@ -187,23 +173,9 @@ const KYCDocumentRequestModal = ({ isOpen, onClose, onCreate }) => {
                         onToggleDocument={toggleDocument}
                     />
 
-                    <BlockingRulesComponent
-                        initial={rulesFake}
-                        preset={blockingPreset}
-                        rules={blockingRules}
-                        onPresetChange={setBlockingPreset}
-                        onToggleRule={toggleBlockingRule}
-                    />
+                    <BlockingRulesComponent ref={blockingRuleRef}/>
 
-                    <NotificationComponent
-                        isEnabled={notification.enabled}
-                        channels={notification.channels}
-                        onToggleEnabled={() => setNotification(prev => ({ ...prev, enabled: !prev.enabled }))}
-                        onToggleChannel={(key) => setNotification(prev => ({
-                            ...prev,
-                            channels: { ...prev.channels, [key]: !prev.channels[key] }
-                        }))}
-                    />
+                    <NotificationComponent ref={notificationRef}/>
 
                     <div style={{ textAlign: 'right', paddingTop: '20px', borderTop: '1px solid #eee' }}>
                         <button onClick={onClose} style={{

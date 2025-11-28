@@ -78,7 +78,7 @@ module.exports = {
     devServer: {
         port: process.env.PORT,
         historyApiFallback: true,
-        hot: true,
+        hot: false,
         headers: {
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
