@@ -95,4 +95,4 @@ function AccordionSectionComponent<T extends AccordionItem>({
     );
 }
 
-export default AccordionSectionComponent;
+export default React.memo(AccordionSectionComponent);

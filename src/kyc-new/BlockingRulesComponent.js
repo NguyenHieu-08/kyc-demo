@@ -1,4 +1,4 @@
-import React, {forwardRef, useEffect, useImperativeHandle, useState} from 'react';
+import React, {forwardRef, useEffect, useImperativeHandle, useState, useMemo, useCallback} from 'react';
 import {useDispatch, useSelector} from "react-redux";
 import {fetchBlockingRulesStart} from "./shard/KYCSlice";
 import COMMON from "./constant/common";
@@ -8,8 +8,9 @@ const BlockingRulesComponent = forwardRef((props, ref) => {
     const [specialBlockingRule, setSpecialBlockingRule] = useState(COMMON.DEFAULT_SPECIFY_BLOCKING_RULES);
     const [blockingRules, setBlockingRules] = useState({});
     const dispatch = useDispatch();
-    const {blockingRuleData} = useSelector(
-        (state) => state.kyc
+    // Chỉ subscribe vào blockingRuleData, không subscribe vào toàn bộ state.kyc
+    const blockingRuleData = useSelector(
+        (state) => state.kyc.blockingRuleData
     );
 
     useEffect(() => {
@@ -24,10 +25,10 @@ const BlockingRulesComponent = forwardRef((props, ref) => {
 
     useImperativeHandle(ref, () => ({
         getBlockingRules: () => blockingRules
-    }));
+    }), [blockingRules]);
 
-
-    const ruleList = [
+    // Memoize ruleList để tránh tạo array mới mỗi lần render
+    const ruleList = useMemo(() => [
         {key: 'casinoBonus', label: 'Casino Bonus Ineligible'},
         {key: 'sbBonus', label: 'SB Bonus Ineligible'},
         {key: 'blockCasino', label: 'Block Casino'},
@@ -35,28 +36,31 @@ const BlockingRulesComponent = forwardRef((props, ref) => {
         {key: 'blockWithdrawals', label: 'Block Withdrawals'},
         {key: 'betBuilder', label: 'Bet Builder Bonus Ineligible'},
         {key: 'blockBetBuilder', label: 'Block Bet Builder'}
-    ];
+    ], []);
 
     // Khi chọn preset → tự động bật/tắt các rule phù hợp
-    const handldSpecialBlockingRuleChange = (value) => {
+    const handldSpecialBlockingRuleChange = useCallback((value) => {
         const specialRule = value ? parseInt(value) : COMMON.DEFAULT_SPECIFY_BLOCKING_RULES;
         setSpecialBlockingRule(specialRule);
         dispatch(fetchBlockingRulesStart(specialRule));
-    };
+    }, [dispatch]);
 
     // Toggle từng rule (chỉ cho phép nếu không bị disabled)
-    const handleToggleRule = (key) => {
-        const rule = blockingRules[key];
-        if (rule && !rule.isDisabled) {
-            setBlockingRules((prev) => ({
-                ...prev,
-                [key]: {
-                    ...prev[key],
-                    value: !prev[key].value,
-                },
-            }));
-        }
-    };
+    const handleToggleRule = useCallback((key) => {
+        setBlockingRules((prev) => {
+            const rule = prev[key];
+            if (rule && !rule.isDisabled) {
+                return {
+                    ...prev,
+                    [key]: {
+                        ...prev[key],
+                        value: !prev[key].value,
+                    },
+                };
+            }
+            return prev;
+        });
+    }, []);
 
     return (
         <div className="blocking-rules">
@@ -106,4 +110,6 @@ const BlockingRulesComponent = forwardRef((props, ref) => {
     );
 });
 
-export default BlockingRulesComponent;
+BlockingRulesComponent.displayName = 'BlockingRulesComponent';
+
+export default React.memo(BlockingRulesComponent);

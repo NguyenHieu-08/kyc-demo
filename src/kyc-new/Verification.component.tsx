@@ -11,7 +11,8 @@ export interface Verification extends AccordionSection {
 
 const VerificationPurpose = forwardRef((props, ref) => {
     const accordionRef = useRef<AccordionHandle>(null);
-    const {verificationPurpose} = useSelector((state: any) => state.kyc);
+    // Chỉ subscribe vào verificationPurpose, không subscribe vào toàn bộ state.kyc
+    const verificationPurpose = useSelector((state: any) => state.kyc.verificationPurpose);
 
     // Expose methods to parent component
     React.useImperativeHandle(ref, () => ({
@@ -21,17 +22,27 @@ const VerificationPurpose = forwardRef((props, ref) => {
         getSelectedItems: () => accordionRef.current?.getSelectedItems() || [],
     }));
 
+    // Memoize sections để tránh tạo array mới mỗi lần render
+    const sections = useMemo(() => {
+        return [...(verificationPurpose || [])];
+    }, [verificationPurpose]);
+
+    // Memoize config để tránh tạo object mới mỗi lần render
+    const config = useMemo(() => ({
+        multipleOpen: true,
+        autoOpenSelected: true,
+        persistOpenState: true,
+    }), []);
+
     return (
         <GenericAccordion
             ref={accordionRef}
-            sections={[...(verificationPurpose || [])]}
-            config={{
-                multipleOpen: true,
-                autoOpenSelected: true,
-                persistOpenState: true,
-            }}
+            sections={sections}
+            config={config}
         />
     );
 });
 
-export default VerificationPurpose;
+VerificationPurpose.displayName = 'VerificationPurpose';
+
+export default React.memo(VerificationPurpose);

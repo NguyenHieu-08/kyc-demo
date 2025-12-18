@@ -1,6 +1,5 @@
-import React from 'react';
+import React, {forwardRef, useMemo, useRef, useImperativeHandle} from 'react';
 import GenericAccordion, {AccordionHandle, AccordionItem, AccordionSection} from "./generate-accordion-section";
-import {forwardRef, useImperativeHandle, useRef} from "react";
 import {useSelector} from "react-redux";
 
 export interface Notification extends AccordionSection {
@@ -13,29 +12,41 @@ interface PropsModal {
     isView?: boolean;
 }
 
-const NotificationMethod = forwardRef<any, PropsModal>(
-    ({isFormEditable = false}, ref) => {
-        const accordionRef = useRef<AccordionHandle>(null);
-        const {notificationMethods} = useSelector((state: any) => state.kyc);
+const NotificationMethod = forwardRef((props: PropsModal, ref: any) => {
+        const {isFormEditable = false} = props;
+        const accordionRef = useRef(null);
+        // Chỉ subscribe vào notificationMethods, không subscribe vào toàn bộ state.kyc
+        const notificationMethods = useSelector((state: any) => state.kyc.notificationMethods);
 
         useImperativeHandle(ref, () => ({
             // Chuẩn hóa API: dùng lại đúng các method từ GenericAccordion
-            getData: () => accordionRef.current?.getData() || [],
-            getOpenSections: () => accordionRef.current?.getOpenSections() || {},
+            getData: () => (accordionRef.current as any)?.getData() || [],
+            getOpenSections: () => (accordionRef.current as any)?.getOpenSections() || {},
         }));
 
+        // Memoize sections để tránh tạo array mới mỗi lần render
+        const sections = useMemo(() => {
+            return notificationMethods || [];
+        }, [notificationMethods]);
+
+        // Memoize config để tránh tạo object mới mỗi lần render
+        const config = useMemo(() => ({
+            multipleOpen: false, // Single section mode
+            autoOpenSelected: true,
+            persistOpenState: true,
+        }), []);
+
+        const AccordionComponent = GenericAccordion as any;
         return (
-            <GenericAccordion
+            <AccordionComponent
                 ref={accordionRef}
-                sections={notificationMethods || []}
-                config={{
-                    multipleOpen: false, // Single section mode
-                    autoOpenSelected: true,
-                    persistOpenState: true,
-                }}
+                sections={sections}
+                config={config}
             />
         );
     }
 );
 
-export default NotificationMethod;
+NotificationMethod.displayName = 'NotificationMethod';
+
+export default React.memo(NotificationMethod);

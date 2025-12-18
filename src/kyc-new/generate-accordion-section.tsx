@@ -43,8 +43,8 @@ export interface AccordionHandle<T extends AccordionItem = AccordionItem> {
     reset: () => void;
 }
 
-const GenericAccordion = forwardRef<AccordionHandle, GenericAccordionProps>(
-    ({ sections, config = {}, onDataChange }, ref) => {
+const GenericAccordion = forwardRef(
+    ({ sections, config = {}, onDataChange }: GenericAccordionProps, ref: any) => {
         const {
             multipleOpen = true,
             autoOpenSelected = true,
@@ -52,10 +52,10 @@ const GenericAccordion = forwardRef<AccordionHandle, GenericAccordionProps>(
             className = ''
         } = config as Partial<AccordionConfig>;
 
-        const [data, setData] = useState<AccordionSection[]>(() =>
+        const [data, setData] = useState(() =>
             Array.isArray(sections) ? [...sections] : []
-        );
-        const [openSections, setOpenSections] = useState<Record<string | number, boolean>>({});
+        ) as any;
+        const [openSections, setOpenSections] = useState({}) as any;
 
         // Initialize data and open states
         useEffect(() => {
@@ -88,8 +88,13 @@ const GenericAccordion = forwardRef<AccordionHandle, GenericAccordionProps>(
                 return data.flatMap(section =>
                     section.data.filter(item => item.isSelected)
                 );
+            },
+            reset: () => {
+                const newSections = Array.isArray(sections) ? sections : [];
+                setData([...newSections]);
+                setOpenSections({});
             }
-        }), [data, openSections]);
+        }), [data, openSections, sections]);
 
         // Toggle section open/close
         const handleToggleSection = (sectionId: number | string) => {
@@ -133,6 +138,16 @@ const GenericAccordion = forwardRef<AccordionHandle, GenericAccordionProps>(
 
         // Handle header checkbox change
         const handleHeaderCheckboxChange = (sectionId: number | string, checked: boolean) => {
+            const section = data.find(s => s.id === sectionId);
+            const isEmptySection = section && section.data.length === 0;
+
+            // For empty sections, checkbox state is controlled by openSections
+            if (isEmptySection) {
+                setOpenSections(prev => ({ ...prev, [sectionId]: checked }));
+                return;
+            }
+
+            // For sections with data, update item selections
             setData(prev =>
                 prev.map(section => {
                     if (section.id !== sectionId) return section;
